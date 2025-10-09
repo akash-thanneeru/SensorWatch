@@ -24,7 +24,7 @@ SensorWatch is an ESP32-based IoT sensor monitoring system that collects tempera
 
 ---
 
-## 🏗️ Architecture Overview
+## Architecture Overview
 
 ### System Components
 
