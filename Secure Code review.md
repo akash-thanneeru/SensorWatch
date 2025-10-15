@@ -1,6 +1,6 @@
 # SensorWatch Security Audit Report
 
-**Date:** October 9, 2025  
+**Date:** October 14, 2025  
 **Auditor:** Akash Thanneeru 
 
 **Repository:** SensorWatch-master (https://github.com/WinWinLabs/SensorWatch#)  
