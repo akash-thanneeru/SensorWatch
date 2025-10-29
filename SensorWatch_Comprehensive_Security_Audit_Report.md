@@ -6,8 +6,9 @@
 **Report Classification:** CONFIDENTIAL  
 **Audit Date:** October 29, 2025  
 **Firmware Version Audited:** 1.1.2  
-**Auditor:** Security Assessment Team  
-**Report Version:** 1.0  
+**Auditor:** Cybersecurity Specialist Team (Akash Thanneeru)
+**Report Version:** 1.0
+**Repo:** https://github.com/WinWinLabs/SensorWatch/tree/team-5-digvijay
 
 ---
 
@@ -181,31 +182,31 @@ The system follows a **three-tier architecture**:
 │                        EDGE TIER (ESP32)                        │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐   │
-│  │  DS18B20 × N │───▶│              │◀───│   DHT22      │   │
-│  │  Temp Sensors│    │   ESP32      │    │  Temp+Humid  │   │
-│  └──────────────┘    │  Controller  │    └──────────────┘   │
-│                      │              │                         │
-│                      │  ┌────────┐  │                         │
-│                      │  │LittleFS│  │                         │
-│                      │  │ Storage│  │                         │
-│                      │  └────────┘  │                         │
-│                      │              │                         │
-│                      │  ┌────────┐  │                         │
-│                      │  │  Web   │  │                         │
-│                      │  │ Server │  │◀─── WiFi Clients        │
-│                      │  │:82     │  │     (Browser)           │
-│                      │  └────────┘  │                         │
-│                      │              │                         │
-│                      │  ┌────────┐  │                         │
-│                      │  │WebSocket│ │◀─── WebSocket          │
-│                      │  │Server  │  │     Clients :81         │
-│                      │  │:81     │  │                         │
-│                      │  └────────┘  │                         │
-│                      └──────────────┘                         │
-│                            │                                   │
-│                            │ WiFi                              │
-│                            ▼                                   │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐       │
+│  │  DS18B20 × N │───▶│              │◀───│   DHT22      │       │
+│  │  Temp Sensors│    │   ESP32      │    │  Temp+Humid  │       │
+│  └──────────────┘    │  Controller  │    └──────────────┘       │
+│                      │              │                           │
+│                      │  ┌────────┐  │                           │
+│                      │  │LittleFS│  │                           │
+│                      │  │ Storage│  │                           │
+│                      │  └────────┘  │                           │
+│                      │              │                           │
+│                      │  ┌────────┐  │                           │
+│                      │  │  Web   │  │                           │
+│                      │  │ Server │  │◀─── WiFi Clients          │
+│                      │  │:82     │  │     (Browser)             │
+│                      │  └────────┘  │                           │
+│                      │              │                           │
+│                      │  ┌────────┐  │                           │
+│                      │  │WebSocket│ │◀─── WebSocket             │
+│                      │  │Server  │  │     Clients :81           │
+│                      │  │:81     │  │                           │
+│                      │  └────────┘  │                           │
+│                      └──────────────┘                           │
+│                            │                                    │
+│                            │ WiFi                               │
+│                            ▼                                    │
 └─────────────────────────────────────────────────────────────────┘
                              │
                              │ TCP/IP
@@ -214,17 +215,17 @@ The system follows a **three-tier architecture**:
 │                     MIDDLEWARE TIER                             │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│           ┌──────────────────────────────┐                    │
-│           │   Eclipse Mosquitto MQTT     │                    │
-│           │   Broker (Docker Container)  │                    │
-│           │                              │                    │
-│           │   Port 1883: MQTT            │◀─── ESP32          │
-│           │   Port 9001: WebSocket       │                    │
-│           │                              │                    │
-│           │   Authentication: None       │                    │
-│           │   (allow_anonymous = true)   │                    │
-│           └──────────────────────────────┘                    │
-│                      │                                         │
+│           ┌──────────────────────────────┐                      │
+│           │   Eclipse Mosquitto MQTT     │                      │
+│           │   Broker (Docker Container)  │                      │
+│           │                              │                      │
+│           │   Port 1883: MQTT            │◀─── ESP32            │
+│           │   Port 9001: WebSocket       │                      │
+│           │                              │                      │
+│           │   Authentication: None       │                      │
+│           │   (allow_anonymous = true)   │                      │
+│           └──────────────────────────────┘                      │
+│                      │                                          │
 └─────────────────────────────────────────────────────────────────┘
                        │
                        │ MQTT/TCP
@@ -233,26 +234,26 @@ The system follows a **three-tier architecture**:
 │                      BACKEND TIER                               │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│   ┌────────────────────┐         ┌──────────────────┐        │
-│   │  Apache/Nginx      │         │   MySQL/MariaDB  │        │
-│   │  Web Server        │────────▶│   Database       │        │
-│   │                    │         │                  │        │
-│   │  ┌──────────────┐  │         │  sensor_readings │        │
-│   │  │update_db.php │  │         │  table           │        │
-│   │  │              │  │         │                  │        │
-│   │  │ HTTP POST    │  │         └──────────────────┘        │
-│   │  │ /update_db   │  │                                      │
-│   │  │              │  │                                      │
-│   │  │ API Key:     │  │                                      │
-│   │  │ tPmAT5Ab...  │  │                                      │
-│   │  └──────────────┘  │                                      │
-│   │                    │                                      │
-│   │  http://ecoforces.com/                                   │
-│   │         update_db.php                                    │
-│   └────────────────────┘                                      │
-│            ▲                                                   │
-│            │ HTTP POST (Cleartext)                            │
-│            │                                                   │
+│   ┌────────────────────┐         ┌──────────────────┐           │
+│   │  Apache/Nginx      │         │   MySQL/MariaDB  │           │
+│   │  Web Server        │────────▶│   Database       │           │
+│   │                    │         │                  │           │
+│   │  ┌──────────────┐  │         │  sensor_readings │           │
+│   │  │update_db.php │  │         │  table           │           │
+│   │  │              │  │         │                  │           │
+│   │  │ HTTP POST    │  │         └──────────────────┘           │
+│   │  │ /update_db   │  │                                        │
+│   │  │              │  │                                        │
+│   │  │ API Key:     │  │                                        │
+│   │  │ tPmAT5Ab...  │  │                                        │
+│   │  └──────────────┘  │                                        │
+│   │                    │                                        │
+│   │  http://ecoforces.com/                                      │
+│   │         update_db.php                                       │
+│   └────────────────────┘                                        │
+│            ▲                                                    │
+│            │ HTTP POST (Cleartext)                              │
+│            │                                                    │
 └─────────────────────────────────────────────────────────────────┘
              │
              │
@@ -4223,6 +4224,6 @@ void setup() {
 
 **END OF SECURITY AUDIT REPORT**
 
-**Contact:** For questions regarding this report, please contact the security assessment team.
+**Contact:** For questions regarding this report, please contact Akash Thanneeru.
 
 **Disclaimer:** This report represents findings at the time of the audit. New vulnerabilities may be discovered over time. Regular security assessments are recommended.
