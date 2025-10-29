@@ -1,4 +1,4 @@
-# COMPREHENSIVE SECURITY AUDIT REPORT
+# 📄 COMPREHENSIVE SECURITY AUDIT REPORT
 ## SensorWatch IoT Sensor Monitoring System
 
 ---
