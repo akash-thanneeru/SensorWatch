@@ -7,7 +7,9 @@
 **Audit Date:** October 29, 2025  
 **Firmware Version Audited:** 1.1.2  
 **Auditor:** Cybersecurity Specialist Team (Akash Thanneeru)
+
 **Report Version:** 1.0
+
 **Repo Link:** https://github.com/WinWinLabs/SensorWatch/tree/team-5-digvijay
 
 ---
