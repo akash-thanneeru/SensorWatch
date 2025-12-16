@@ -2,7 +2,7 @@
 
 **Project:** SensorWatch IoT Security Hardening  
 **Component:** PHP Backend API (`src/update_db.php`)  
-**Audit Date:** October 29, 2025  
+**Audit Date:** Dec 16, 2025  
 **Priority:** CRITICAL - Production Blocker
 
 ---
