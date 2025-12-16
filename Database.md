@@ -1052,4 +1052,864 @@ class SessionManager {
         if (!document.getElementById('session-warning')) {
             const modal = document.createElement('div');
             modal.id = 'session-warning';
-            modal.innerHTML = `
+            modal.innerHTML = ``
+                <div style="position: fixed; top: 20px; right: 20px; background: #fff3cd; 
+                            border: 2px solid #ffc107; border-radius: 8px; padding: 20px; 
+                            max-width: 400px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 10000;">
+                    <h3 style="margin: 0 0 10px 0; color: #856404;">⏰ Session Expiring Soon</h3>
+                    <p style="margin: 0 0 15px 0; color: #856404;">
+                        Your session will expire in ${minutes} minute${minutes > 1 ? 's' : ''}.
+                    </p>
+                    <button onclick="sessionManager.extendSession()" 
+                            style="width: 100%; padding: 10px; background: #ffc107; 
+                                   border: none; border-radius: 5px; cursor: pointer; 
+                                   font-weight: 600; color: #000;">
+                        Extend Session
+                    </button>
+                    <button onclick="sessionManager.logout()" 
+                            style="width: 100%; padding: 10px; background: transparent; 
+                                   border: 1px solid #856404; border-radius: 5px; 
+                                   cursor: pointer; margin-top: 10px; color: #856404;">
+                        Logout Now
+                    </button>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+    }
+    
+    async extendSession() {
+        const token = this.getToken();
+        
+        try {
+            const response = await fetch('/api/extend-session', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                this.setToken(data.token);
+                
+                // Remove warning modal
+                const modal = document.getElementById('session-warning');
+                if (modal) modal.remove();
+            }
+        } catch (error) {
+            console.error('Session extension error:', error);
+        }
+    }
+    
+    async logout() {
+        const token = this.getToken();
+        
+        try {
+            await fetch('/api/logout', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+        } catch (error) {
+            console.error('Logout error:', error);
+        } finally {
+            this.clearToken();
+            this.redirectToLogin();
+        }
+    }
+    
+    redirectToLogin() {
+        // Clear all session data
+        sessionStorage.clear();
+        
+        // Redirect to login
+        window.location.href = '/login';
+    }
+}
+
+// Initialize session manager
+const sessionManager = new SessionManager();
+
+// Validate session on page load
+if (!window.location.pathname.includes('/login')) {
+    sessionManager.validateSession();
+}
+```
+
+#### 3. Protected Page Template
+
+```html
+<!-- Example: Dashboard page with authentication -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SensorWatch - Dashboard</title>
+</head>
+<body>
+    <div id="loading">Loading...</div>
+    <div id="content" style="display: none;">
+        <!-- Dashboard content here -->
+        <header>
+            <h1>Dashboard</h1>
+            <button onclick="sessionManager.logout()">Logout</button>
+        </header>
+        
+        <main>
+            <!-- Your existing dashboard HTML -->
+        </main>
+    </div>
+    
+    <script src="/js/session-manager.js"></script>
+    <script>
+        // Verify authentication before showing content
+        (async function() {
+            const isAuthenticated = await sessionManager.validateSession();
+            
+            if (isAuthenticated) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('content').style.display = 'block';
+                
+                // Initialize dashboard
+                initializeDashboard();
+            }
+        })();
+        
+        function initializeDashboard() {
+            // Your existing dashboard initialization code
+        }
+        
+        // Add authentication to all API calls
+        async function authenticatedFetch(url, options = {}) {
+            const token = sessionManager.getToken();
+            
+            const headers = {
+                ...options.headers,
+                'Authorization': `Bearer ${token}`
+            };
+            
+            try {
+                const response = await fetch(url, { ...options, headers });
+                
+                // Handle 401 Unauthorized
+                if (response.status === 401) {
+                    sessionManager.redirectToLogin();
+                    return null;
+                }
+                
+                return response;
+            } catch (error) {
+                console.error('API error:', error);
+                throw error;
+            }
+        }
+    </script>
+</body>
+</html>
+```
+
+**Deliverables:**
+- [ ] Remove client-side credential validation
+- [ ] Implement server-side authentication
+- [ ] Create session management system
+- [ ] Add authentication to all protected pages
+- [ ] Implement session timeout warnings
+- [ ] Add logout functionality
+
+**Dependencies:** Firmware team (authentication API endpoints)
+
+---
+
+## HIGH PRIORITY
+
+### H1: Implement Content Security Policy (CSP)
+**How Discovered:**
+No CSP headers present, allowing inline scripts and potential XSS attacks.
+
+**Security Impact:**
+- XSS vulnerabilities more easily exploitable
+- No protection against code injection
+- Malicious scripts can execute freely
+
+**Required Fix:**
+Add CSP meta tag and remove all inline JavaScript.
+
+**Step 1: Add CSP Meta Tag**
+```html
+<head>
+    <meta http-equiv="Content-Security-Policy" 
+          content="
+            default-src 'self';
+            script-src 'self' 'nonce-RANDOM_NONCE_HERE';
+            style-src 'self' 'nonce-RANDOM_NONCE_HERE';
+            img-src 'self' data:;
+            connect-src 'self';
+            font-src 'self';
+            object-src 'none';
+            base-uri 'self';
+            form-action 'self';
+            frame-ancestors 'none';
+          ">
+</head>
+```
+
+**Step 2: Move Inline Scripts to External Files**
+
+**BEFORE (Inline - Insecure):**
+```html
+<button onclick="deleteFile()">Delete</button>
+
+<script>
+function deleteFile() {
+    // Delete logic
+}
+</script>
+```
+
+**AFTER (External - Secure):**
+```html
+<button id="delete-button">Delete</button>
+
+<script src="/js/file-manager.js" nonce="RANDOM_NONCE"></script>
+```
+
+```javascript
+// /js/file-manager.js
+document.getElementById('delete-button').addEventListener('click', function() {
+    // Delete logic
+});
+```
+
+**Step 3: Generate Nonces Dynamically**
+
+In firmware (main.cpp):
+```cpp
+String generateCSPNonce() {
+    uint8_t randomBytes[16];
+    esp_fill_random(randomBytes, 16);
+    
+    char nonce[33];
+    for(int i = 0; i < 16; i++) {
+        sprintf(nonce + (i * 2), "%02x", randomBytes[i]);
+    }
+    return String(nonce);
+}
+
+server.on("/", HTTP_GET, []() {
+    if (!requireAuth(server)) return;
+    
+    String nonce = generateCSPNonce();
+    
+    // Add CSP header with nonce
+    String csp = "default-src 'self'; script-src 'self' 'nonce-" + nonce + "';";
+    server.sendHeader("Content-Security-Policy", csp);
+    
+    // Generate HTML with nonce in script tags
+    String html = generateHTML(nonce);
+    server.send(200, "text/html", html);
+});
+```
+
+**Deliverables:**
+- [ ] Define CSP policy
+- [ ] Move all inline scripts to external files
+- [ ] Move all inline styles to external stylesheets
+- [ ] Implement nonce generation
+- [ ] Test CSP in report-only mode first
+- [ ] Deploy enforcing CSP
+
+---
+
+### H2: Add Client-Side Input Validation
+**How Discovered:**
+Form inputs lack validation, sending invalid data to server.
+
+**Security Impact:**
+- Poor user experience
+- Unnecessary server load
+- Potential for injection attacks
+
+**Required Fix:**
+Implement comprehensive client-side validation (server-side validation still required).
+
+```javascript
+// validators.js
+
+const Validators = {
+    sensorId: {
+        pattern: /^[A-F0-9]{16}$/,
+        message: 'Sensor ID must be 16 hexadecimal characters'
+    },
+    
+    temperature: {
+        validate: (value) => {
+            const num = parseFloat(value);
+            return !isNaN(num) && num >= -50 && num <= 150;
+        },
+        message: 'Temperature must be between -50°F and 150°F'
+    },
+    
+    filename: {
+        validate: (value) => {
+            // No path traversal
+            if (value.includes('..') || value.includes('/') || value.includes('\\')) {
+                return false;
+            }
+            // Valid characters only
+            return /^[a-zA-Z0-9_\-\.]+$/.test(value);
+        },
+        message: 'Filename contains invalid characters'
+    },
+    
+    wifiSSID: {
+        validate: (value) => {
+            return value.length >= 1 && value.length <= 32;
+        },
+        message: 'SSID must be 1-32 characters'
+    },
+    
+    wifiPassword: {
+        validate: (value) => {
+            return value.length >= 8 && value.length <= 63;
+        },
+        message: 'Password must be 8-63 characters'
+    }
+};
+
+function validateInput(value, validatorKey) {
+    const validator = Validators[validatorKey];
+    
+    if (!validator) {
+        console.error(`Unknown validator: ${validatorKey}`);
+        return { valid: false, message: 'Validation error' };
+    }
+    
+    let isValid;
+    if (validator.pattern) {
+        isValid = validator.pattern.test(value);
+    } else if (validator.validate) {
+        isValid = validator.validate(value);
+    } else {
+        isValid = false;
+    }
+    
+    return {
+        valid: isValid,
+        message: isValid ? '' : validator.message
+    };
+}
+
+function sanitizeHTML(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+// Form validation helper
+function setupFormValidation(formId) {
+    const form = document.getElementById(formId);
+    
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        let isValid = true;
+        const formData = new FormData(form);
+        
+        // Validate all inputs with data-validator attribute
+        form.querySelectorAll('[data-validator]').forEach(input => {
+            const validatorKey = input.dataset.validator;
+            const value = input.value;
+            const result = validateInput(value, validatorKey);
+            
+            const errorElement = input.parentElement.querySelector('.error-message');
+            
+            if (!result.valid) {
+                isValid = false;
+                input.classList.add('invalid');
+                if (errorElement) {
+                    errorElement.textContent = result.message;
+                    errorElement.style.display = 'block';
+                }
+            } else {
+                input.classList.remove('invalid');
+                if (errorElement) {
+                    errorElement.style.display = 'none';
+                }
+            }
+        });
+        
+        if (isValid) {
+            // Submit form
+            form.submit();
+        }
+    });
+    
+    // Real-time validation on blur
+    form.querySelectorAll('[data-validator]').forEach(input => {
+        input.addEventListener('blur', function() {
+            const validatorKey = this.dataset.validator;
+            const result = validateInput(this.value, validatorKey);
+            
+            const errorElement = this.parentElement.querySelector('.error-message');
+            
+            if (!result.valid) {
+                this.classList.add('invalid');
+                if (errorElement) {
+                    errorElement.textContent = result.message;
+                    errorElement.style.display = 'block';
+                }
+            } else {
+                this.classList.remove('invalid');
+                if (errorElement) {
+                    errorElement.style.display = 'none';
+                }
+            }
+        });
+    });
+}
+```
+
+**HTML Usage:**
+```html
+<form id="sensor-form">
+    <div class="form-group">
+        <label for="sensor-id">Sensor ID</label>
+        <input 
+            type="text" 
+            id="sensor-id" 
+            name="sensor_id"
+            data-validator="sensorId"
+            maxlength="16"
+            required
+        >
+        <span class="error-message" style="display: none;"></span>
+    </div>
+    
+    <div class="form-group">
+        <label for="temperature">Temperature (°F)</label>
+        <input 
+            type="number" 
+            id="temperature" 
+            name="temperature"
+            data-validator="temperature"
+            min="-50"
+            max="150"
+            step="0.1"
+            required
+        >
+        <span class="error-message" style="display: none;"></span>
+    </div>
+    
+    <button type="submit">Submit</button>
+</form>
+
+<script>
+    setupFormValidation('sensor-form');
+</script>
+```
+
+**CSS:**
+```css
+.form-group input.invalid {
+    border-color: #dc3545;
+}
+
+.error-message {
+    color: #dc3545;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+```
+
+**Deliverables:**
+- [ ] Create validation library
+- [ ] Add validation to all forms
+- [ ] Implement real-time feedback
+- [ ] Add HTML5 validation attributes
+- [ ] Test all validation rules
+
+---
+
+## MEDIUM PRIORITY
+
+### M1: Implement Secure Session Handling
+**Action:** Add proper session indicators and security.
+
+```javascript
+// secure-session.js
+
+class SecureSession {
+    constructor() {
+        this.sessionKey = 'session_data';
+        this.encryptionKey = null;
+        this.initializeEncryption();
+    }
+    
+    async initializeEncryption() {
+        // Generate encryption key from password
+        const password = 'session-encryption-key'; // Should come from server
+        const encoder = new TextEncoder();
+        const keyMaterial = await window.crypto.subtle.importKey(
+            'raw',
+            encoder.encode(password),
+            { name: 'PBKDF2' },
+            false,
+            ['deriveBits', 'deriveKey']
+        );
+        
+        this.encryptionKey = await window.crypto.subtle.deriveKey(
+            {
+                name: 'PBKDF2',
+                salt: encoder.encode('sensorwatch-salt'),
+                iterations: 100000,
+                hash: 'SHA-256'
+            },
+            keyMaterial,
+            { name: 'AES-GCM', length: 256 },
+            false,
+            ['encrypt', 'decrypt']
+        );
+    }
+    
+    async encryptData(data) {
+        const encoder = new TextEncoder();
+        const iv = window.crypto.getRandomValues(new Uint8Array(12));
+        
+        const encrypted = await window.crypto.subtle.encrypt(
+            { name: 'AES-GCM', iv },
+            this.encryptionKey,
+            encoder.encode(JSON.stringify(data))
+        );
+        
+        // Combine IV and encrypted data
+        const combined = new Uint8Array(iv.length + encrypted.byteLength);
+        combined.set(iv);
+        combined.set(new Uint8Array(encrypted), iv.length);
+        
+        // Convert to base64
+        return btoa(String.fromCharCode(...combined));
+    }
+    
+    async decryptData(encryptedData) {
+        try {
+            // Decode base64
+            const combined = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
+            
+            // Split IV and encrypted data
+            const iv = combined.slice(0, 12);
+            const encrypted = combined.slice(12);
+            
+            const decrypted = await window.crypto.subtle.decrypt(
+                { name: 'AES-GCM', iv },
+                this.encryptionKey,
+                encrypted
+            );
+            
+            const decoder = new TextDecoder();
+            return JSON.parse(decoder.decode(decrypted));
+        } catch (error) {
+            console.error('Decryption failed:', error);
+            return null;
+        }
+    }
+    
+    async saveSecurely(key, value) {
+        const encrypted = await this.encryptData({ [key]: value });
+        sessionStorage.setItem(this.sessionKey, encrypted);
+    }
+    
+    async getSecurely(key) {
+        const encrypted = sessionStorage.getItem(this.sessionKey);
+        if (!encrypted) return null;
+        
+        const data = await this.decryptData(encrypted);
+        return data ? data[key] : null;
+    }
+    
+    clearAll() {
+        sessionStorage.clear();
+    }
+}
+
+const secureSession = new SecureSession();
+```
+
+---
+
+### M2: Add Security Indicators to UI
+**Action:** Show connection and session status.
+
+```html
+<div id="security-status" style="position: fixed; top: 10px; right: 10px; 
+                                  background: white; padding: 10px; 
+                                  border-radius: 5px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    <div style="display: flex; align-items: center; gap: 10px;">
+        <span id="https-indicator" title="Secure HTTPS Connection">
+            🔒 Secure
+        </span>
+        <span id="session-indicator" title="Session active"></span>
+    </div>
+</div>
+
+<script>
+function updateSecurityIndicators() {
+    // Check HTTPS
+    const httpsIndicator = document.getElementById('https-indicator');
+    if (window.location.protocol === 'https:') {
+        httpsIndicator.innerHTML = '🔒 Secure';
+        httpsIndicator.style.color = '#28a745';
+    } else {
+        httpsIndicator.innerHTML = '⚠️ Insecure';
+        httpsIndicator.style.color = '#dc3545';
+    }
+    
+    // Show session status
+    const sessionIndicator = document.getElementById('session-indicator');
+    const token = sessionManager.getToken();
+    
+    if (token) {
+        sessionIndicator.innerHTML = '✓ Authenticated';
+        sessionIndicator.style.color = '#28a745';
+    } else {
+        sessionIndicator.innerHTML = '✗ Not authenticated';
+        sessionIndicator.style.color = '#dc3545';
+    }
+}
+
+// Update indicators on page load and periodically
+updateSecurityIndicators();
+setInterval(updateSecurityIndicators, 30000); // Every 30 seconds
+</script>
+```
+
+---
+
+### M3: Upgrade to WSS (Secure WebSocket)
+**Action:** Replace ws:// with wss:// for WebSocket connections.
+
+```javascript
+// BEFORE (Insecure)
+const ws = new WebSocket('ws://' + window.location.hostname + ':81');
+
+// AFTER (Secure)
+const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+const port = window.location.protocol === 'https:' ? '443' : '81';
+const ws = new WebSocket(`${protocol}//${window.location.hostname}:${port}`);
+
+// Add authentication token to WebSocket connection
+ws.onopen = function() {
+    const token = sessionManager.getToken();
+    
+    // Send authentication message
+    ws.send(JSON.stringify({
+        type: 'auth',
+        token: token
+    }));
+};
+
+ws.onmessage = function(event) {
+    const data = JSON.parse(event.data);
+    
+    // Handle different message types
+    if (data.type === 'auth_response') {
+        if (data.success) {
+            console.log('✓ WebSocket authenticated');
+        } else {
+            console.error('✗ WebSocket authentication failed');
+            ws.close();
+            sessionManager.redirectToLogin();
+        }
+    } else if (data.type === 'sensor_data') {
+        updateSensorDisplay(data);
+    }
+};
+
+ws.onerror = function(error) {
+    console.error('WebSocket error:', error);
+};
+
+ws.onclose = function() {
+    console.log('WebSocket closed, attempting reconnect...');
+    setTimeout(connectWebSocket, 5000);
+};
+```
+
+---
+
+### M4: Implement File Upload Validation
+**Action:** Validate files before upload.
+
+```javascript
+function validateFileUpload(file) {
+    // Allowed extensions
+    const allowedExtensions = ['.txt', '.json', '.csv'];
+    const fileExtension = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+    
+    if (!allowedExtensions.includes(fileExtension)) {
+        return {
+            valid: false,
+            message: `File type not allowed. Allowed types: ${allowedExtensions.join(', ')}`
+        };
+    }
+    
+    // Maximum file size: 1MB
+    const maxSize = 1024 * 1024;
+    if (file.size > maxSize) {
+        return {
+            valid: false,
+            message: `File too large. Maximum size: ${maxSize / 1024}KB`
+        };
+    }
+    
+    // Validate filename
+    const filenameRegex = /^[a-zA-Z0-9_\-\.]+$/;
+    if (!filenameRegex.test(file.name)) {
+        return {
+            valid: false,
+            message: 'Filename contains invalid characters'
+        };
+    }
+    
+    return { valid: true };
+}
+
+// File upload handler
+document.getElementById('file-input').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    
+    if (!file) return;
+    
+    const validation = validateFileUpload(file);
+    
+    if (!validation.valid) {
+        alert(validation.message);
+        e.target.value = ''; // Clear input
+        return;
+    }
+    
+    // Proceed with upload
+    uploadFile(file);
+});
+
+async function uploadFile(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const token = sessionManager.getToken();
+    
+    try {
+        const response = await fetch('/api/upload', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            body: formData
+        });
+        
+        if (response.ok) {
+            alert('File uploaded successfully');
+        } else {
+            alert('Upload failed');
+        }
+    } catch (error) {
+        console.error('Upload error:', error);
+        alert('Upload failed');
+    }
+}
+```
+
+---
+
+## TESTING REQUIREMENTS
+
+### Client-Side Security Tests
+
+1. **Authentication Tests:**
+```javascript
+// Test that unauthenticated access redirects to login
+async function testUnauthenticatedAccess() {
+    sessionManager.clearToken();
+    
+    const response = await fetch('/dashboard');
+    
+    // Should redirect to /login
+    console.assert(
+        window.location.pathname === '/login',
+        'Unauthenticated access should redirect to login'
+    );
+}
+```
+
+2. **Input Validation Tests:**
+```javascript
+function testInputValidation() {
+    // Test valid sensor ID
+    let result = validateInput('ABC123DEF4567890', 'sensorId');
+    console.assert(result.valid === true, 'Valid sensor ID should pass');
+    
+    // Test invalid sensor ID (SQL injection attempt)
+    result = validateInput("' OR '1'='1", 'sensorId');
+    console.assert(result.valid === false, 'SQL injection should be blocked');
+    
+    // Test XSS attempt
+    result = validateInput('<script>alert("XSS")</script>', 'filename');
+    console.assert(result.valid === false, 'XSS attempt should be blocked');
+}
+```
+
+3. **CSP Compliance Tests:**
+```javascript
+// Check that CSP is enforced
+function testCSP() {
+    // Try to execute inline script (should be blocked by CSP)
+    const script = document.createElement('script');
+    script.textContent = 'console.log("This should be blocked")';
+    
+    try {
+        document.body.appendChild(script);
+        console.error('CSP FAILED: Inline script was not blocked');
+    } catch (error) {
+        console.log('✓ CSP working: Inline script blocked');
+    }
+}
+```
+
+---
+
+## DEPENDENCIES
+
+### From Firmware Team
+- [ ] Authentication API endpoints
+- [ ] Session management backend
+- [ ] HTTPS enabled on web server
+- [ ] WebSocket authentication support
+
+### From Security Team
+- [ ] CSP policy requirements
+- [ ] Security header specifications
+- [ ] Authentication token format
+- [ ] Session timeout values
+
+---
+
+## DEPLOYMENT CHECKLIST
+
+- [ ] Remove all client-side authentication
+- [ ] Implement server-side authentication
+- [ ] Add session management
+- [ ] Implement CSP
+- [ ] Move inline scripts to external files
+- [ ] Add input validation
+- [ ] Upgrade WebSocket to WSS
+- [ ] Add security indicators
+- [ ] Test all security controls
+- [ ] Update documentation
+
+---
+
+**Report Generated:** Security Audit Team  
+**Document Version:** 1.0  
+**Last Updated:** December 16, 2025
